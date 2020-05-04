@@ -8,11 +8,16 @@
 - PIM-9114: fix errors on mass action when the parent filter is set to empty
 - PIM-9110: avoid deadlock error when loading product and product models in parallel with the API
 - PIM-9113: Locale Specific attribute breaks product grid
+- PIM-9157: Fix performance issue when loading the data of a product group
+- PIM-9163: total_fields limit of elasticsearch should be configurable
+- PIM-9197: Make queries in InMemoryGetAttributes case insensitive
+- PIM-9213: Fix tooltip hover on Ellipsis for Family Name on creating product
 - PIM-9112: remove empty metric values from the database
 
 ## New features
 
 - MET-14: Measurements (or metrics) are now stored in database
+- AOB-277: Add an acl to allow a role member to view all job executions in last job execution grids, job tracker and last operations widget.
 
 ## Improvements
 
@@ -24,6 +29,8 @@
 
 ### Codebase
 
+- Change constructor of `Akeneo\Tool\Bundle\ElasticsearchBundle\IndexConfiguration\Loader` to
+    - add `Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface $parameterBag`
 - Change constructor of `Akeneo\Pim\Enrichment\Bundle\Controller\InternalApi\ProductModelController` to
     - add `Akeneo\Pim\Enrichment\Bundle\Filter\CollectionFilterInterface $productEditDataFilter`
 - Change constructor of `Akeneo\Pim\Enrichment\Bundle\Controller\InternalApi\ProductController` to
@@ -48,6 +55,10 @@
     - add `Akeneo\Tool\Bundle\MeasureBundle\Persistence\MeasurementFamilyRepositoryInterface $measurementFamilyRepository`
     - add `Akeneo\Tool\Component\StorageUtils\Repository\BaseCachedObjectRepository $baseCachedObjectRepository`
     - add `Psr\Log\LoggerInterface $logger`
+- Change constructor of `Akeneo\Pim\Enrichment\Component\Product\Normalizer\InternalApi\GroupNormalizer` to
+    - add `Akeneo\Pim\Enrichment\Component\Product\Query\GetGroupProductIdentifiers`
+- Change constructor of `Akeneo\Pim\Structure\Component\Query\PublicApi\AttributeType\Attribute` to
+    - add `(string) $defaultMetricUnit`    
 - Change `Akeneo\Tool\Bundle\MeasureBundle\Manager\MeasureManager` to remove method `setMeasureConfig(array $config)`
 - Remove `Akeneo\Tool\Bundle\MeasureBundle\DependencyInjection\Configuration`
 - Remove `Akeneo\Tool\Bundle\MeasureBundle\Family\AreaFamilyInterface`
