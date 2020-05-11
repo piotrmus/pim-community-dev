@@ -95,10 +95,10 @@ class AssociatedProductDatasource extends ProductDatasource
             $scope
         );
 
-        $productModelLimit = $limit - $associatedProducts->count();
+        $productModelLimit = $limit - $associatedProducts->count() + $from;
         $normalizedAssociatedProductModels = [];
         if ($productModelLimit > 0) {
-            $productModelFrom = $from - count($associatedProductsIds) + $associatedProducts->count();
+            $productModelFrom = $from - count($associatedProductsIds) + count($normalizedAssociatedProducts);
             $associatedProductModels = $this->getAssociatedProductModels(
                 $associatedProductModelsIds,
                 $productModelLimit,

@@ -1,5 +1,9 @@
 # 4.0.x
 
+## Bug fixes
+
+- Fix: product models are not displayed when a product/product model has more than 25 products associated
+
 # 4.0.24 (2020-05-07)
 
 # 4.0.23 (2020-05-06)
