@@ -3,10 +3,10 @@ import {Table, TableCell, TableHeaderCell, TableHeaderRow, TableRow} from '../..
 import styled from '../../../common/styled-with-theme';
 import {useDateFormatter} from '../../../shared/formatter/use-date-formatter';
 import {Translate} from '../../../shared/translate';
-import {ConnectionError} from '../../hooks/api/use-connection-errors';
 import {NoError} from './NoError';
 import {SearchFilter} from './SearchFilter';
 import {Order, SortButton} from './SortButton';
+import {ConnectionError, RouteType, HrefType, HrefParameter} from '../Model/ConnectionError';
 
 const useFormatTimestamp = () => {
     const formatDateTime = useDateFormatter();
@@ -75,7 +75,7 @@ const ErrorList: FC<Props> = ({errors}) => {
                                     <table>
                                         <tbody>
                                             {Object.entries(error.content)
-                                                .filter(([key]) => 'message' !== key)
+                                                .filter(([key]) => 'message' !== key && 'documentation' !== key)
                                                 .map(([key, value], i) => {
                                                     return (
                                                         <ErrorContentRow key={i}>
@@ -86,6 +86,40 @@ const ErrorList: FC<Props> = ({errors}) => {
                                                 })}
                                         </tbody>
                                     </table>
+                                    {error.content.documentation !== undefined &&
+                                    error.content.documentation.map((documentation, i) =>
+                                        <div key={i}>
+                                            {
+                                                documentation.message
+                                                    .split(/(%s)/)
+                                                    .map((messagePart, j) => {
+                                                        if (messagePart !== '%s') {
+                                                            return messagePart;
+                                                        }
+                                                        const param = documentation.params.shift();
+                                                        if (undefined === param) {
+                                                            return;
+                                                        }
+
+                                                        switch (param.type) {
+                                                            case HrefType:
+                                                                const hrefParam: HrefParameter = param;
+
+                                                                return
+                                                                    <a
+                                                                        key={j}
+                                                                        href={hrefParam.href}
+                                                                        target='_blank'
+                                                                    >
+                                                                        {hrefParam.title}
+                                                                    </a>;
+                                                            case RouteType:
+                                                                return <span key={j}>{param.title}</span>;
+                                                        }
+                                                    })
+                                            }
+                                        </div>
+                                    )}
                                 </ErrorMessageCell>
                             </TableRow>
                         ))}
