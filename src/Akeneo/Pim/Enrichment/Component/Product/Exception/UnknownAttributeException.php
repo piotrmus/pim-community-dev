@@ -3,6 +3,8 @@
 namespace Akeneo\Pim\Enrichment\Component\Product\Exception;
 
 use Akeneo\Pim\Enrichment\Component\DocumentedExceptionInterface;
+use Akeneo\Pim\Enrichment\Component\Product\Error\ProductDomainErrorCodes;
+use Akeneo\Pim\Enrichment\Component\Product\Error\IdentifiableDomainErrorInterface;
 use Akeneo\Tool\Component\StorageUtils\Exception\PropertyException;
 
 /**
@@ -11,7 +13,7 @@ use Akeneo\Tool\Component\StorageUtils\Exception\PropertyException;
  * @copyright 2020 Akeneo SAS (http://www.akeneo.com)
  * @license   http://opensource.org/licenses/osl-3.0.php  Open Software License (OSL 3.0)
  */
-class UnknownAttributeException extends PropertyException implements DocumentedExceptionInterface
+final class UnknownAttributeException extends PropertyException implements IdentifiableDomainErrorInterface, DocumentedExceptionInterface
 {
     public function __construct(string $attributeName, string $message = '', int $code = 0, \Exception $previous = null)
     {
@@ -31,6 +33,11 @@ class UnknownAttributeException extends PropertyException implements DocumentedE
             0,
             $previous
         );
+    }
+
+    public function getDomainErrorCode(): string
+    {
+        return ProductDomainErrorCodes::UNKNOWN_ATTRIBUTE;
     }
 
     public function getDocumentation(): array

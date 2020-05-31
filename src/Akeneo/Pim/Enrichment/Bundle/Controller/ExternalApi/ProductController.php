@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Akeneo\Pim\Enrichment\Bundle\Controller\ExternalApi;
 
+use Akeneo\Connectivity\Connection\Infrastructure\Event\ProductDomainErrorEvent;
+use Akeneo\Connectivity\Connection\Infrastructure\Event\ProductValidationErrorEvent;
+use Akeneo\Connectivity\Connection\Infrastructure\Event\TechnicalErrorEvent;
 use Akeneo\Pim\Enrichment\Bundle\EventSubscriber\Product\OnSave\ApiAggregatorForProductPostSaveEventSubscriber;
 use Akeneo\Pim\Enrichment\Component\Product\Builder\ProductBuilderInterface;
 use Akeneo\Pim\Enrichment\Component\Product\Comparator\Filter\FilterInterface;
@@ -12,6 +15,7 @@ use Akeneo\Pim\Enrichment\Component\Product\Connector\UseCase\ListProductsQuery;
 use Akeneo\Pim\Enrichment\Component\Product\Connector\UseCase\ListProductsQueryHandler;
 use Akeneo\Pim\Enrichment\Component\Product\Connector\UseCase\Validator\ListProductsQueryValidator;
 use Akeneo\Pim\Enrichment\Component\Product\EntityWithFamilyVariant\AddParent;
+use Akeneo\Pim\Enrichment\Component\Product\Error\IdentifiableDomainErrorInterface;
 use Akeneo\Pim\Enrichment\Component\Product\Event\Connector\ReadProductsEvent;
 use Akeneo\Pim\Enrichment\Component\Product\Exception\ObjectNotFoundException;
 use Akeneo\Pim\Enrichment\Component\Product\Model\ProductInterface;
@@ -32,7 +36,6 @@ use Akeneo\Tool\Component\Api\Pagination\PaginatorInterface;
 use Akeneo\Tool\Component\Api\Security\PrimaryKeyEncrypter;
 use Akeneo\Tool\Component\StorageUtils\Exception\InvalidPropertyTypeException;
 use Akeneo\Tool\Component\StorageUtils\Exception\PropertyException;
-use Akeneo\Tool\Component\StorageUtils\Exception\UnknownPropertyException;
 use Akeneo\Tool\Component\StorageUtils\Remover\RemoverInterface;
 use Akeneo\Tool\Component\StorageUtils\Repository\IdentifiableObjectRepositoryInterface;
 use Akeneo\Tool\Component\StorageUtils\Saver\SaverInterface;
@@ -263,9 +266,11 @@ class ProductController
             throw new UnprocessableEntityHttpException($e->getMessage(), $e);
         } catch (BadRequest400Exception $e) {
             $message = json_decode($e->getMessage(), true);
-            if (null !== $message && isset($message['error']['root_cause'][0]['type'])
+            if (
+                null !== $message && isset($message['error']['root_cause'][0]['type'])
                 && 'illegal_argument_exception' === $message['error']['root_cause'][0]['type']
-                && 0 === strpos($message['error']['root_cause'][0]['reason'], 'Result window is too large, from + size must be less than or equal to:')) {
+                && 0 === strpos($message['error']['root_cause'][0]['reason'], 'Result window is too large, from + size must be less than or equal to:')
+            ) {
                 throw new DocumentedHttpException(
                     Documentation::URL_DOCUMENTATION . 'pagination.html#search-after-type',
                     'You have reached the maximum number of pages you can retrieve with the "page" pagination type. Please use the search after pagination type instead',
@@ -371,11 +376,13 @@ class ProductController
 
         try {
             $this->duplicateValueChecker->check($data);
-        } catch (InvalidPropertyTypeException $e) {
+        } catch (InvalidPropertyTypeException $exception) {
+            $this->eventDispatcher->dispatch(new TechnicalErrorEvent($exception));
+
             throw new DocumentedHttpException(
                 Documentation::URL . 'patch_products__code_',
                 sprintf('%s Check the expected format on the API documentation.', $e->getMessage()),
-                $e
+                $exception
             );
         }
 
@@ -491,14 +498,25 @@ class ProductController
             }
 
             $this->updater->update($product, $data);
-        } catch (PropertyException $exception) {
-            throw new DocumentedHttpException(
-                Documentation::URL . $anchor,
-                sprintf('%s Check the expected format on the API documentation.', $exception->getMessage()),
-                $exception
-            );
-        } catch (InvalidArgumentException $exception) {
-            throw new AccessDeniedHttpException($exception->getMessage(), $exception);
+        } catch (\Exception $exception) {
+            if ($exception instanceof IdentifiableDomainErrorInterface) {
+                $this->eventDispatcher->dispatch(new ProductDomainErrorEvent($exception, $product));
+            } else {
+                $this->eventDispatcher->dispatch(new TechnicalErrorEvent($exception));
+            }
+
+            if ($exception instanceof PropertyException) {
+                throw new DocumentedHttpException(
+                    Documentation::URL . $anchor,
+                    sprintf('%s Check the expected format on the API documentation.', $exception->getMessage()),
+                    $exception
+                );
+            }
+            if ($exception instanceof InvalidArgumentException) {
+                throw new AccessDeniedHttpException($exception->getMessage(), $exception);
+            }
+
+            throw $exception;
         }
     }
 
@@ -527,6 +545,12 @@ class ProductController
                 $data['values'] = [];
             }
         } catch (PropertyException $exception) {
+            if ($exception instanceof IdentifiableDomainErrorInterface) {
+                $this->eventDispatcher->dispatch(new ProductDomainErrorEvent($exception, $product));
+            } else {
+                $this->eventDispatcher->dispatch(new TechnicalErrorEvent($exception));
+            }
+
             throw new DocumentedHttpException(
                 Documentation::URL . 'patch_products__code_',
                 sprintf('%s Check the expected format on the API documentation.', $exception->getMessage()),
@@ -549,6 +573,8 @@ class ProductController
     {
         $violations = $this->productValidator->validate($product, null, ['Default', 'api']);
         if (0 !== $violations->count()) {
+            $this->eventDispatcher->dispatch(new ProductValidationErrorEvent($violations, $product));
+
             throw new ViolationHttpException($violations);
         }
     }
